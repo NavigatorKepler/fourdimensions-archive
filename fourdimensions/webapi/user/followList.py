@@ -4,7 +4,7 @@ import json
 import requests
 from typing import List
 
-class Follow_List:
+class FollowList:
     class NoContentError(Exception):
         pass
     @staticmethod
@@ -47,7 +47,7 @@ class Follow_List:
                 return response_json
 
         # print(response_json)
-        raise Follow_List.NoContentError("此页无内容")
+        raise FollowList.NoContentError("此页无内容")
 
     @staticmethod
     def extract_uids(follow_list: dict) -> List[int]:
@@ -63,18 +63,46 @@ class Follow_List:
         # TODO: ...
         raise NotImplementedError
 
+    @staticmethod
+    def get_all_follows(uid: int, follow_type: int, sess: requests.Session = None):
+        page = 1
+        retry = 10
+        follows: List[int] = []
+        while True:
+            print(page, end='\r')
+            try:
+                data = FollowList.get(uid=uid, page=page, follow_type=follow_type, sess=sess)
+            except:
+                retry -= 1
+                if retry > 0:
+                    continue
+                else:
+                    break
+            
+            if follow_type in (0, 1):
+                if not data['data'].get('user_follow_info'):
+                    break
+                page += 1
+                retry = 10
+                follows.extend(data['data']['user_follow_info'])
+            elif follow_type == 3:
+                return data['data']['user_follow_circles']
+        # assert len(items) == len(set(items))
+
+        return follows
+
 if __name__ == "__main__":
     sess = requests.session()
     from itertools import count
     for page in count(1):
         print(f"== {page} ==")
         try:
-            follow_list = Follow_List.get(uid=4366886634525245, page=page, follow_type=1, sess=sess)
-            uids = Follow_List.extract_uids(follow_list)
+            follow_list = FollowList.get(uid=4366886634525245, page=page, follow_type=1, sess=sess)
+            uids = FollowList.extract_uids(follow_list)
             print("uids:", uids)
-        except Follow_List.NoContentError:
+        except FollowList.NoContentError:
             print('完成')
             break
         else:
-            with open(__file__.replace(__file__.split("/")[-1], "follow-list-demo.json"), "w", encoding="utf-8") as f:
+            with open(__file__.replace(__file__.split("/")[-1], "followList-demo.json"), "w", encoding="utf-8") as f:
                 json.dump(follow_list, f, indent=4, ensure_ascii=False)
